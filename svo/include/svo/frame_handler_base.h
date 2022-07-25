@@ -116,6 +116,12 @@ protected:
 
   /// Optimize some of the observed 3D points.
   virtual void optimizeStructure(FramePtr frame, size_t max_n_pts, int max_iter);
+
+
+  /// added
+  FramePtr last_frame_;
+  FramePtr new_frame_;                          //!< Current frame.
+  double last_kf_time_sec_ = -1.0;
 };
 
 } // namespace nslam

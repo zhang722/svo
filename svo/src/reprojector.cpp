@@ -80,6 +80,14 @@ void Reprojector::reprojectMap(
   // in which grid cell the points fall.
   size_t n = 0;
   overlap_kfs.reserve(options_.max_n_kfs);
+
+  std::cout << "over lap kf id: ";
+  for (auto kf : close_kfs) {
+    std::cout << " " << kf.first->id_;
+  }
+  std::cout << std::endl;
+
+  int count = 0;
   for(auto it_frame=close_kfs.begin(), ite_frame=close_kfs.end();
       it_frame!=ite_frame && n<options_.max_n_kfs; ++it_frame, ++n)
   {
@@ -100,15 +108,21 @@ void Reprojector::reprojectMap(
       (*it_ftr)->point->last_projected_kf_id_ = frame->id_;
       if(reprojectPoint(frame, (*it_ftr)->point))
         overlap_kfs.back().second++;
+      count ++;
     }
   }
   SVO_STOP_TIMER("reproject_kfs");
+
+  // debug log
+  std::cout << "reprofect landmark: " << count << std::endl;
 
   // Now project all point candidates
   SVO_START_TIMER("reproject_candidates");
   {
     boost::unique_lock<boost::mutex> lock(map_.point_candidates_.mut_);
     auto it=map_.point_candidates_.candidates_.begin();
+    // debug log
+    std::cout << "candidate size: " << map_.point_candidates_.candidates_.size() << std::endl;
     while(it!=map_.point_candidates_.candidates_.end())
     {
       if(!reprojectPoint(frame, it->first))
@@ -185,13 +199,6 @@ bool Reprojector::reprojectCell(Cell& cell, FramePtr frame)
     // Here we add a reference in the feature to the 3D point, the other way
     // round is only done if this frame is selected as keyframe.
     new_feature->point = it->pt;
-
-    if(matcher_.ref_ftr_->type == Feature::EDGELET)
-    {
-      new_feature->type = Feature::EDGELET;
-      new_feature->grad = matcher_.A_cur_ref_*matcher_.ref_ftr_->grad;
-      new_feature->grad.normalize();
-    }
 
     // If the keyframe is selected and we reproject the rest, we don't have to
     // check this point anymore.

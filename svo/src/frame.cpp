@@ -149,6 +149,18 @@ bool Frame::isVisible(const Vector3d& xyz_w) const
   return false;
 }
 
+size_t Frame::numTrackedLandmarks()
+{
+    size_t count = 0;
+    for(auto ft : fts_ )
+    {
+      if(ft->point)
+        ++count;
+    }
+    return count;
+}
+
+
 
 /// Utility functions for the Frame class
 namespace frame_utils {

@@ -152,11 +152,12 @@ void optimizeGaussNewton(
     error_final = sqrt(vk::getMedian(chi2_vec_final))*frame->cam_->errorMultiplier2();
 
   estimated_scale *= frame->cam_->errorMultiplier2();
-  if(verbose)
+  //if(verbose)
     std::cout << "n deleted obs = " << n_deleted_refs
               << "\t scale = " << estimated_scale
               << "\t error init = " << error_init
               << "\t error end = " << error_final << std::endl;
+  
   num_obs -= n_deleted_refs;
 }
 

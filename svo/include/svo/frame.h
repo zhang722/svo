@@ -136,6 +136,14 @@ public:
     J(1,4) = -J(0,3);             // -x*y/z^2
     J(1,5) = -x*z_inv;            // x/z
   }
+
+
+  /// Timestamp of frame in seconds.
+  inline double getTimestampSec() const {return static_cast<double>(timestamp_)/1e9;}
+
+
+  /// added
+  size_t numTrackedLandmarks();
 };
 
 

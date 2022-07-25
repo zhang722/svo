@@ -85,7 +85,7 @@ void FrameHandlerMono::addImage(const cv::Mat& img, const double timestamp)
   last_frame_ = new_frame_;
   new_frame_.reset();
   // finish processing
-  finishFrameProcessingCommon(last_frame_->id_, res, last_frame_->nObs());
+  finishFrameProcessingCommon(last_frame_->id_, res, last_frame_->numTrackedLandmarks());
 }
 
 FrameHandlerMono::UpdateResult FrameHandlerMono::processFirstFrame()
@@ -128,6 +128,9 @@ FrameHandlerBase::UpdateResult FrameHandlerMono::processSecondFrame()
 
 FrameHandlerBase::UpdateResult FrameHandlerMono::processFrame()
 {
+  // debug log
+  std::cout << "seed size: " << depth_filter_->getSeeds().size();
+  depth_filter_->addFrame(last_frame_);
   // Set initial pose TODO use prior
   new_frame_->T_f_w_ = last_frame_->T_f_w_;
 
@@ -148,46 +151,63 @@ FrameHandlerBase::UpdateResult FrameHandlerMono::processFrame()
   const size_t repr_n_mps = reprojector_.n_trials_;
   SVO_LOG2(repr_n_mps, repr_n_new_references);
   SVO_DEBUG_STREAM("Reprojection:\t nPoints = "<<repr_n_mps<<"\t \t nMatches = "<<repr_n_new_references);
-  if(repr_n_new_references < Config::qualityMinFts())
-  {
-    SVO_WARN_STREAM_THROTTLE(1.0, "Not enough matched features.");
-    new_frame_->T_f_w_ = last_frame_->T_f_w_; // reset to avoid crazy pose jumps
-    tracking_quality_ = TRACKING_INSUFFICIENT;
-    return RESULT_FAILURE;
-  }
+  std::cout << "Reprojection:\t nPoints = "<<repr_n_mps<<"\t \t nMatches = "<<repr_n_new_references<< std::endl;
+  
+  // if(repr_n_new_references < Config::qualityMinFts())
+  // {
+  //   SVO_WARN_STREAM_THROTTLE(1.0, "Not enough matched features.");
+  //   new_frame_->T_f_w_ = last_frame_->T_f_w_; // reset to avoid crazy pose jumps
+  //   tracking_quality_ = TRACKING_INSUFFICIENT;
+  //   return RESULT_FAILURE;
+  // }
 
   // pose optimization
-  SVO_START_TIMER("pose_optimizer");
-  size_t sfba_n_edges_final;
-  double sfba_thresh, sfba_error_init, sfba_error_final;
-  pose_optimizer::optimizeGaussNewton(
-      Config::poseOptimThresh(), Config::poseOptimNumIter(), false,
-      new_frame_, sfba_thresh, sfba_error_init, sfba_error_final, sfba_n_edges_final);
-  SVO_STOP_TIMER("pose_optimizer");
-  SVO_LOG4(sfba_thresh, sfba_error_init, sfba_error_final, sfba_n_edges_final);
-  SVO_DEBUG_STREAM("PoseOptimizer:\t ErrInit = "<<sfba_error_init<<"px\t thresh = "<<sfba_thresh);
-  SVO_DEBUG_STREAM("PoseOptimizer:\t ErrFin. = "<<sfba_error_final<<"px\t nObsFin. = "<<sfba_n_edges_final);
-  if(sfba_n_edges_final < 20)
-    return RESULT_FAILURE;
+  // SVO_START_TIMER("pose_optimizer");
+  // size_t sfba_n_edges_final;
+  // double sfba_thresh, sfba_error_init, sfba_error_final;
+  // pose_optimizer::optimizeGaussNewton(
+  //     Config::poseOptimThresh(), Config::poseOptimNumIter(), false,
+  //     new_frame_, sfba_thresh, sfba_error_init, sfba_error_final, sfba_n_edges_final);
+  // SVO_STOP_TIMER("pose_optimizer");
+  // SVO_LOG4(sfba_thresh, sfba_error_init, sfba_error_final, sfba_n_edges_final);
+  // SVO_DEBUG_STREAM("PoseOptimizer:\t ErrInit = "<<sfba_error_init<<"px\t thresh = "<<sfba_thresh);
+  // SVO_DEBUG_STREAM("PoseOptimizer:\t ErrFin. = "<<sfba_error_final<<"px\t nObsFin. = "<<sfba_n_edges_final);
+  // std::cout << "sfba:" << sfba_n_edges_final << std::endl;
+  // if(sfba_n_edges_final < 20)
+  //   return RESULT_FAILURE;
 
-  // structure optimization
-  SVO_START_TIMER("point_optimizer");
-  optimizeStructure(new_frame_, Config::structureOptimMaxPts(), Config::structureOptimNumIter());
-  SVO_STOP_TIMER("point_optimizer");
+  // // structure optimization
+  // SVO_START_TIMER("point_optimizer");
+  // optimizeStructure(new_frame_, Config::structureOptimMaxPts(), Config::structureOptimNumIter());
+  // SVO_STOP_TIMER("point_optimizer");
 
-  // select keyframe
-  core_kfs_.insert(new_frame_);
-  setTrackingQuality(sfba_n_edges_final);
-  if(tracking_quality_ == TRACKING_INSUFFICIENT)
-  {
-    new_frame_->T_f_w_ = last_frame_->T_f_w_; // reset to avoid crazy pose jumps
-    return RESULT_FAILURE;
-  }
+  // // select keyframe
+  // core_kfs_.insert(new_frame_);
+  // setTrackingQuality(sfba_n_edges_final);
+  // if(tracking_quality_ == TRACKING_INSUFFICIENT)
+  // {
+  //   new_frame_->T_f_w_ = last_frame_->T_f_w_; // reset to avoid crazy pose jumps
+  //   return RESULT_FAILURE;
+  // }
   double depth_mean, depth_min;
   frame_utils::getSceneDepth(*new_frame_, depth_mean, depth_min);
+  std::cout << "kf size: " << map_.keyframes_.size() << std::endl;
+  int count = 0;
+  int count1 = 0;
+  for (auto& f : map_.keyframes_) {
+    for (auto ft : f->fts_) {
+      if (ft->point) {
+        count ++;
+      }
+    }
+  }
+  for (auto c : map_.point_candidates_.candidates_) {
+    count1 ++;
+  }
+  std::cout << "ft size: " << count << std::endl;
   if(!needNewKf(depth_mean) || tracking_quality_ == TRACKING_BAD)
   {
-    depth_filter_->addFrame(new_frame_);
+
     return RESULT_NO_KEYFRAME;
   }
   new_frame_->setKeyframe();
@@ -197,6 +217,7 @@ FrameHandlerBase::UpdateResult FrameHandlerMono::processFrame()
   for(Features::iterator it=new_frame_->fts_.begin(); it!=new_frame_->fts_.end(); ++it)
     if((*it)->point != NULL)
       (*it)->point->addFrameRef(*it);
+  std::cout << "candidate size: " << map_.point_candidates_.candidates_.size() << std::endl;
   map_.point_candidates_.addCandidatePointToFrame(new_frame_);
 
   // optional bundle adjustment
@@ -303,15 +324,79 @@ void FrameHandlerMono::setFirstFrame(const FramePtr& first_frame)
 
 bool FrameHandlerMono::needNewKf(double scene_depth_mean)
 {
-  for(auto it=overlap_kfs_.begin(), ite=overlap_kfs_.end(); it!=ite; ++it)
-  {
-    Vector3d relpos = new_frame_->w2f(it->first->pos());
-    if(fabs(relpos.x())/scene_depth_mean < Config::kfSelectMinDist() &&
-       fabs(relpos.y())/scene_depth_mean < Config::kfSelectMinDist()*0.8 &&
-       fabs(relpos.z())/scene_depth_mean < Config::kfSelectMinDist()*1.3)
-      return false;
+  if (last_kf_time_sec_ > 0 
+    && options_.kfselect_backend_max_time_sec > 0
+    && new_frame_->getTimestampSec() - last_kf_time_sec_ > 
+       options_.kfselect_backend_max_time_sec) {
+    return true;
   }
+
+  size_t n_tracked_fts = new_frame_->numTrackedLandmarks();
+  // KF Select: NO NEW KEYFRAME Above upper bound
+  if (n_tracked_fts > options_.kfselect_numkfs_upper_thresh) {
+    return false;  
+  }
+  std::cout << "n_tracked_fts: " << new_frame_->numTrackedLandmarks() << std::endl;
+  std::cout << "id diff: " << last_frame_->id_ - map_.lastKeyframe()->id_ << std::endl;
+
+  // KF Select: NEW KEYFRAME Below lower bound
+  if (n_tracked_fts < options_.kfselect_numkfs_lower_thresh)
+  {
+    return true;
+  }
+
+  // KF Select: NO NEW KEYFRAME We just have a keyframe
+  if (last_frame_->id_ - map_.lastKeyframe()->id_ < 
+    options_.kfselect_min_num_frames_between_kfs) {
+    return false;
+  }
+
+
+
+  // Check disparity
+  if (options_.kfselect_min_disparity > 0) {
+    int kf_id = map_.lastKeyframe()->id_;
+    std::vector<double> disparities;
+    const FramePtr& frame = new_frame_;
+    disparities.reserve(frame->fts_.size());
+
+    for (auto& ft : frame->fts_) {
+      if (ft->point) {
+        const std::list<Feature*> obs = ft->point->obs_;
+        for (auto it = obs.rbegin(); it != obs.rend(); it++) {
+          if ((*it)->frame->id_ == kf_id) {
+            disparities.push_back(((*it)->px-ft->px).norm());
+          }
+        }
+      }
+    }
+
+    if (!disparities.empty()) {
+      double disparity = vk::getMedian(disparities);
+      std::cout << "disparity: " << disparity << std::endl;
+      if (disparity < options_.kfselect_min_disparity) {
+        return false;
+      }
+    }
+  }
+
+  // Check similarity to overlap kf
+  for (const auto& kf : overlap_kfs_) {
+    AngleAxisd v_diff;
+    v_diff.fromRotationMatrix(new_frame_->T_f_w_.rotation_matrix() * 
+      kf.first->T_f_w_.rotation_matrix().inverse());
+    const double a = v_diff.angle() * 180 / M_PI;
+    const double t = (new_frame_->pos() - kf.first->pos()).norm();
+    
+    if (a < options_.kfselect_min_angle &&
+        t < options_.kfselect_min_dist_metric) {
+      return false;
+    }
+  }
+
+
   return true;
+
 }
 
 void FrameHandlerMono::setCoreKfs(size_t n_closest)

@@ -25,6 +25,33 @@
 
 namespace svo {
 
+struct Options
+{
+  /// Maximun duration allowed between keyframes.
+  double kfselect_backend_max_time_sec = 3.0;
+  
+  /// If we are tracking more than this amount of
+  /// features, then we don't take a new keyframe.
+  size_t kfselect_numkfs_upper_thresh = 110;
+
+  /// If last id - map last id <= this number, then
+  /// we don't take a new keyframe.
+  int kfselect_min_num_frames_between_kfs = 1; 
+
+  /// If we are tracking less than this amount of
+  /// features, then we take a new keyframe.
+  size_t kfselect_numkfs_lower_thresh = 80; 
+
+  /// If disparity is less than this number, then we
+  /// don't take a new keyframe.
+  double kfselect_min_disparity = 30;
+
+  /// If position and orientation is similar to any overlap 
+  /// keyframe, then we don't take a new keyframe.
+  double kfselect_min_angle = 20;
+  double kfselect_min_dist_metric = 0.01;
+};
+
 /// Monocular Visual Odometry Pipeline as described in the SVO paper.
 class FrameHandlerMono : public FrameHandlerBase
 {
@@ -63,8 +90,6 @@ public:
 protected:
   vk::AbstractCamera* cam_;                     //!< Camera model, can be ATAN, Pinhole or Ocam (see vikit).
   Reprojector reprojector_;                     //!< Projects points from other keyframes into the current frame
-  FramePtr new_frame_;                          //!< Current frame.
-  FramePtr last_frame_;                         //!< Last frame, not necessarily a keyframe.
   set<FramePtr> core_kfs_;                      //!< Keyframes in the closer neighbourhood.
   vector< pair<FramePtr,size_t> > overlap_kfs_; //!< All keyframes with overlapping field of view. the paired number specifies how many common mappoints are observed TODO: why vector!?
   initialization::KltHomographyInit klt_homography_init_; //!< Used to estimate pose of the first two keyframes by estimating a homography.
@@ -94,6 +119,9 @@ protected:
   virtual bool needNewKf(double scene_depth_mean);
 
   void setCoreKfs(size_t n_closest);
+
+  /// added
+  Options options_;
 };
 
 } // namespace svo

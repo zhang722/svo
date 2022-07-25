@@ -122,6 +122,11 @@ void DepthFilter::initializeSeeds(FramePtr frame)
   seeds_updating_halt_ = true;
   lock_t lock(seeds_mut_); // by locking the updateSeeds function stops
   ++Seed::batch_counter;
+  // debug log
+  std::cout << "mu: " << 1./new_keyframe_mean_depth_ << std::endl;
+  std::cout << "sigma: " << (1./new_keyframe_min_depth_) * 
+  (1. / new_keyframe_min_depth_) / 36 << std::endl;
+
   std::for_each(new_features.begin(), new_features.end(), [&](Feature* ftr){
     seeds_.push_back(Seed(ftr, new_keyframe_mean_depth_, new_keyframe_min_depth_));
   });
@@ -206,6 +211,7 @@ void DepthFilter::updateSeeds(FramePtr frame)
   double px_noise = 1.0;
   double px_error_angle = atan(px_noise/(2.0*focal_length))*2.0; // law of chord (sehnensatz)
 
+  int count = 0;
   while( it!=seeds_.end())
   {
     // set this value true when seeds updating should be interrupted
@@ -246,19 +252,33 @@ void DepthFilter::updateSeeds(FramePtr frame)
     // compute tau
     double tau = computeTau(T_ref_cur, it->ftr->f, z, px_error_angle);
     double tau_inverse = 0.5 * (1.0/max(0.0000001, z-tau) - 1.0/(z+tau));
+    // debug log
+    // std::cout << "tau: " << tau<< std::endl;
+    // std::cout << "z: " << z << std::endl;
+    float threshold = 20.0;
+    // std::cout << "threshold: " << it->z_range/threshold << std::endl;
+
+    // debug log
+    // std::cout << "before:\n" << "sqrt sigma: " << sqrt(it->sigma2) << std::endl;
+    // std::cout << "z inv: " << 1./z << std::endl;
+
 
     // update the estimate
     updateSeed(1./z, tau_inverse*tau_inverse, &*it);
     ++n_updates;
+
+    // debug log
+    // std::cout << "after:\n" << "sqrt sigma: " << sqrt(it->sigma2) << std::endl;
+    // std::cout << "z inv: " << 1./z << std::endl;
 
     if(frame->isKeyframe())
     {
       // The feature detector should not initialize new seeds close to this location
       feature_detector_->setGridOccpuancy(matcher_.px_cur_);
     }
-
     // if the seed has converged, we initialize a new candidate point and remove the seed
-    if(sqrt(it->sigma2) < it->z_range/options_.seed_convergence_sigma2_thresh)
+    // if(sqrt(it->sigma2) < it->z_range/options_.seed_convergence_sigma2_thresh)
+    if(sqrt(it->sigma2) < it->z_range/threshold)
     {
       assert(it->ftr->point == NULL); // TODO this should not happen anymore
       Vector3d xyz_world(it->ftr->frame->T_f_w_.inverse() * (it->ftr->f * (1.0/it->mu)));
@@ -279,6 +299,7 @@ void DepthFilter::updateSeeds(FramePtr frame)
         seed_converged_cb_(point, it->sigma2); // put in candidate list
       }
       it = seeds_.erase(it);
+      count ++;
     }
     else if(isnan(z_inv_min))
     {
@@ -288,6 +309,11 @@ void DepthFilter::updateSeeds(FramePtr frame)
     else
       ++it;
   }
+
+  // debug log
+  std::cout << "coverged seeds: " << count << std::endl;
+  std::cout << "updated  seeds: " << n_updates << std::endl;
+  
 }
 
 void DepthFilter::clearFrameQueue()
@@ -346,6 +372,16 @@ double DepthFilter::computeTau(
   double beta_plus = beta + px_error_angle;
   double gamma_plus = PI-alpha-beta_plus; // triangle angles sum to PI
   double z_plus = t_norm*sin(beta_plus)/sin(gamma_plus); // law of sines
+  // debug log
+  // std::cout <<
+  // "beta+: " <<  beta_plus <<
+  // " beta: " <<  beta <<
+  // " cos(beta): " <<  a.dot(-t)/(t_norm*a_norm) <<
+  // " gamma+: " << gamma_plus <<
+  // " error angle: " << px_error_angle <<
+  // " z+: " << z_plus <<
+  // " z: " << z << std::endl;
+
   return (z_plus - z); // tau
 }
 
