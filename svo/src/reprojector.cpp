@@ -113,8 +113,7 @@ void Reprojector::reprojectMap(
   }
   SVO_STOP_TIMER("reproject_kfs");
 
-  // debug log
-  std::cout << "reprofect landmark: " << count << std::endl;
+
 
   // Now project all point candidates
   SVO_START_TIMER("reproject_candidates");

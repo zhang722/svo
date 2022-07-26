@@ -97,9 +97,6 @@ public:
   /// Stop the parallel thread that is running.
   void stopThread();
 
-  /// Add frame to the queue to be processed.
-  void addFrame(FramePtr frame, bool use_vogiatzis_update);
-
   /// Add new keyframe to the queue
   void addKeyframe(FramePtr frame, double depth_mean, double depth_min);
 
@@ -140,7 +137,7 @@ public:
       const double px_error_angle);
 
   /// Update all seeds with a new measurement frame.
-  virtual void updateSeeds(FramePtr frame, bool use_vogiatzis_update);
+  virtual int updateSeeds(FramePtr frame, bool use_vogiatzis_update, float threshold);
 
 protected:
   feature_detection::DetectorPtr feature_detector_;

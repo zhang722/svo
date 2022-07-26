@@ -57,6 +57,13 @@ struct Options
 
   /// If update seeds with vogiatizis model, false=Gaussian
   bool use_vogiatzis_update = false;
+
+  /// If change threshold of depth filter every frame.
+  bool use_dynamic_thresh = true;
+
+  /// Threshold of depth filter. Greater this number, 
+  /// harder converging.
+  float seed_convergence_sigma2_thresh = 200.0;
 };
 
 /// Monocular Visual Odometry Pipeline as described in the SVO paper.
@@ -93,6 +100,8 @@ public:
       const SE3& T_kf_f,
       const cv::Mat& img,
       const double timestamp);
+  
+  std::list<int> converged_seed_last_frames_;
 
 protected:
   vk::AbstractCamera* cam_;                     //!< Camera model, can be ATAN, Pinhole or Ocam (see vikit).
@@ -128,6 +137,9 @@ protected:
   void setCoreKfs(size_t n_closest);
 
   /// added
+  void setThreshold(std::list<int>& converged_seeds,
+    float& seed_convergence_sigma2_thresh);
+
   Options options_;
 };
 

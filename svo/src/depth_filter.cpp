@@ -79,10 +79,7 @@ void DepthFilter::stopThread()
   }
 }
 
-void DepthFilter::addFrame(FramePtr frame, bool use_vogiatzis_update)
-{
-  updateSeeds(frame, use_vogiatzis_update);
-}
+
 
 void DepthFilter::addKeyframe(FramePtr frame, double depth_mean, double depth_min)
 {
@@ -103,10 +100,7 @@ void DepthFilter::initializeSeeds(FramePtr frame)
   seeds_updating_halt_ = true;
   lock_t lock(seeds_mut_); // by locking the updateSeeds function stops
   ++Seed::batch_counter;
-  // debug log
-  std::cout << "mu: " << 1./new_keyframe_mean_depth_ << std::endl;
-  std::cout << "sigma: " << (1./new_keyframe_min_depth_) * 
-  (1. / new_keyframe_min_depth_) / 36 << std::endl;
+
 
   std::for_each(new_features.begin(), new_features.end(), [&](Feature* ftr){
     seeds_.push_back(Seed(ftr, new_keyframe_mean_depth_, new_keyframe_min_depth_));
@@ -154,7 +148,7 @@ void DepthFilter::reset()
 
 
 
-void DepthFilter::updateSeeds(FramePtr frame, bool use_vogiatzis_update)
+int DepthFilter::updateSeeds(FramePtr frame, bool use_vogiatzis_update, float threshold)
 {
   // update only a limited number of seeds, because we don't have time to do it
   // for all the seeds in every frame!
@@ -179,7 +173,7 @@ void DepthFilter::updateSeeds(FramePtr frame, bool use_vogiatzis_update)
 
     // set this value true when seeds updating should be interrupted
     if(seeds_updating_halt_)
-      return;
+      return 0;
 
     // check if seed is not already too old
     if((Seed::batch_counter - it->batch_id) > options_.max_n_kfs) {
@@ -218,7 +212,6 @@ void DepthFilter::updateSeeds(FramePtr frame, bool use_vogiatzis_update)
     // debug log
     // std::cout << "tau: " << tau<< std::endl;
     // std::cout << "z: " << z << std::endl;
-    float threshold = 200.0;
     // std::cout << "threshold: " << it->z_range/threshold << std::endl;
 
     // debug log
@@ -280,6 +273,7 @@ void DepthFilter::updateSeeds(FramePtr frame, bool use_vogiatzis_update)
   std::cout << "coverged seeds: " << count << std::endl;
   std::cout << "updated  seeds: " << n_updates << std::endl;
   
+  return count;
 }
 
 void DepthFilter::clearFrameQueue()

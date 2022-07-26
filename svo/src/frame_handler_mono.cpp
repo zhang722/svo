@@ -130,7 +130,22 @@ FrameHandlerBase::UpdateResult FrameHandlerMono::processFrame()
 {
   // debug log
   std::cout << "seed size: " << depth_filter_->getSeeds().size();
-  depth_filter_->addFrame(last_frame_, options_.use_vogiatzis_update);
+  int converged_seeds;
+  converged_seeds = depth_filter_->updateSeeds(last_frame_, 
+    options_.use_vogiatzis_update,
+    options_.seed_convergence_sigma2_thresh);
+
+  if (options_.use_dynamic_thresh) {
+    converged_seed_last_frames_.push_back(converged_seeds);
+    if (converged_seed_last_frames_.size() > 3) {
+      converged_seed_last_frames_.pop_front();
+    }
+
+    setThreshold(converged_seed_last_frames_, options_.seed_convergence_sigma2_thresh);
+    // debug log
+    std::cout << "threshold: " << options_.seed_convergence_sigma2_thresh << std::endl;
+  }
+
   // Set initial pose TODO use prior
   new_frame_->T_f_w_ = last_frame_->T_f_w_;
 
@@ -242,7 +257,8 @@ FrameHandlerBase::UpdateResult FrameHandlerMono::processFrame()
   depth_filter_->addKeyframe(new_frame_, depth_mean, 0.5*depth_min);
   if (options_.update_seeds_with_old_keyframes) {
     for (auto& old_kf : overlap_kfs_) {
-      depth_filter_->updateSeeds(old_kf.first, options_.use_vogiatzis_update);
+      depth_filter_->updateSeeds(old_kf.first, options_.use_vogiatzis_update,
+        options_.seed_convergence_sigma2_thresh);
     }
   }
 
@@ -411,6 +427,25 @@ void FrameHandlerMono::setCoreKfs(size_t n_closest)
                     boost::bind(&pair<FramePtr, size_t>::second, _1) >
                     boost::bind(&pair<FramePtr, size_t>::second, _2));
   std::for_each(overlap_kfs_.begin(), overlap_kfs_.end(), [&](pair<FramePtr,size_t>& i){ core_kfs_.insert(i.first); });
+}
+
+
+void FrameHandlerMono::setThreshold(std::list<int>& converged_seeds,
+  float& seed_convergence_sigma2_thresh)
+{
+  int count = 0;
+  for (auto& c : converged_seeds) {
+    count += c;
+  }
+  if (!count) {
+    seed_convergence_sigma2_thresh -= 20;
+  } else if (count > 5) {
+    seed_convergence_sigma2_thresh += 20;
+  }
+  if (seed_convergence_sigma2_thresh > 200)
+    seed_convergence_sigma2_thresh = 200;
+  if (seed_convergence_sigma2_thresh < 20)
+    seed_convergence_sigma2_thresh = 20;
 }
 
 } // namespace svo
