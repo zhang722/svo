@@ -183,12 +183,12 @@ FrameHandlerBase::UpdateResult FrameHandlerMono::processFrame()
 
   // select keyframe
   core_kfs_.insert(new_frame_);
-  setTrackingQuality(sfba_n_edges_final);
-  if(tracking_quality_ == TRACKING_INSUFFICIENT)
-  {
-    new_frame_->T_f_w_ = last_frame_->T_f_w_; // reset to avoid crazy pose jumps
-    return RESULT_FAILURE;
-  }
+  // setTrackingQuality(sfba_n_edges_final);
+  // if(tracking_quality_ == TRACKING_INSUFFICIENT)
+  // {
+  //   new_frame_->T_f_w_ = last_frame_->T_f_w_; // reset to avoid crazy pose jumps
+  //   return RESULT_FAILURE;
+  // }
   double depth_mean, depth_min;
   frame_utils::getSceneDepth(*new_frame_, depth_mean, depth_min);
   std::cout << "kf size: " << map_.keyframes_.size() << std::endl;
