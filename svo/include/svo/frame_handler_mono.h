@@ -54,6 +54,9 @@ struct Options
   /// If update seeds with overlap keyframes when a 
   /// keyframe selected into depth filter.
   bool update_seeds_with_old_keyframes = true;
+
+  /// If update seeds with vogiatizis model, false=Gaussian
+  bool use_vogiatzis_update = false;
 };
 
 /// Monocular Visual Odometry Pipeline as described in the SVO paper.

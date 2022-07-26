@@ -98,7 +98,7 @@ public:
   void stopThread();
 
   /// Add frame to the queue to be processed.
-  void addFrame(FramePtr frame);
+  void addFrame(FramePtr frame, bool use_vogiatzis_update);
 
   /// Add new keyframe to the queue
   void addKeyframe(FramePtr frame, double depth_mean, double depth_min);
@@ -127,6 +127,11 @@ public:
       const float tau2,
       Seed* seed);
 
+  static void updateSeedGaussian(
+      const float x,
+      const float tau2,
+      Seed* seed);
+
   /// Compute the uncertainty of the measurement.
   static double computeTau(
       const SE3& T_ref_cur,
@@ -135,7 +140,7 @@ public:
       const double px_error_angle);
 
   /// Update all seeds with a new measurement frame.
-  virtual void updateSeeds(FramePtr frame);
+  virtual void updateSeeds(FramePtr frame, bool use_vogiatzis_update);
 
 protected:
   feature_detection::DetectorPtr feature_detector_;
@@ -161,9 +166,6 @@ protected:
 
   /// When a new keyframe arrives, the frame queue should be cleared.
   void clearFrameQueue();
-
-  /// A thread that is continuously updating the seeds.
-  void updateSeedsLoop();
 };
 
 } // namespace svo

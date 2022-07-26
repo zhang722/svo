@@ -130,7 +130,7 @@ FrameHandlerBase::UpdateResult FrameHandlerMono::processFrame()
 {
   // debug log
   std::cout << "seed size: " << depth_filter_->getSeeds().size();
-  depth_filter_->addFrame(last_frame_);
+  depth_filter_->addFrame(last_frame_, options_.use_vogiatzis_update);
   // Set initial pose TODO use prior
   new_frame_->T_f_w_ = last_frame_->T_f_w_;
 
@@ -242,7 +242,7 @@ FrameHandlerBase::UpdateResult FrameHandlerMono::processFrame()
   depth_filter_->addKeyframe(new_frame_, depth_mean, 0.5*depth_min);
   if (options_.update_seeds_with_old_keyframes) {
     for (auto& old_kf : overlap_kfs_) {
-      depth_filter_->updateSeeds(old_kf.first);
+      depth_filter_->updateSeeds(old_kf.first, options_.use_vogiatzis_update);
     }
   }
 

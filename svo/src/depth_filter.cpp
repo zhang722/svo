@@ -63,7 +63,7 @@ DepthFilter::~DepthFilter()
 
 void DepthFilter::startThread()
 {
-  thread_ = new boost::thread(&DepthFilter::updateSeedsLoop, this);
+  // thread_ = new boost::thread(&DepthFilter::updateSeedsLoop, this);
 }
 
 void DepthFilter::stopThread()
@@ -79,36 +79,17 @@ void DepthFilter::stopThread()
   }
 }
 
-void DepthFilter::addFrame(FramePtr frame)
+void DepthFilter::addFrame(FramePtr frame, bool use_vogiatzis_update)
 {
-  if(thread_ != NULL)
-  {
-    {
-      lock_t lock(frame_queue_mut_);
-      if(frame_queue_.size() > 2)
-        frame_queue_.pop();
-      frame_queue_.push(frame);
-    }
-    seeds_updating_halt_ = false;
-    frame_queue_cond_.notify_one();
-  }
-  else
-    updateSeeds(frame);
+  updateSeeds(frame, use_vogiatzis_update);
 }
 
 void DepthFilter::addKeyframe(FramePtr frame, double depth_mean, double depth_min)
 {
   new_keyframe_min_depth_ = depth_min;
   new_keyframe_mean_depth_ = depth_mean;
-  if(thread_ != NULL)
-  {
-    new_keyframe_ = frame;
-    new_keyframe_set_ = true;
-    seeds_updating_halt_ = true;
-    frame_queue_cond_.notify_one();
-  }
-  else
-    initializeSeeds(frame);
+
+  initializeSeeds(frame);
 }
 
 void DepthFilter::initializeSeeds(FramePtr frame)
@@ -171,35 +152,9 @@ void DepthFilter::reset()
     SVO_INFO_STREAM("DepthFilter: RESET.");
 }
 
-void DepthFilter::updateSeedsLoop()
-{
-  while(!boost::this_thread::interruption_requested())
-  {
-    FramePtr frame;
-    {
-      lock_t lock(frame_queue_mut_);
-      while(frame_queue_.empty() && new_keyframe_set_ == false)
-        frame_queue_cond_.wait(lock);
-      if(new_keyframe_set_)
-      {
-        new_keyframe_set_ = false;
-        seeds_updating_halt_ = false;
-        clearFrameQueue();
-        frame = new_keyframe_;
-      }
-      else
-      {
-        frame = frame_queue_.front();
-        frame_queue_.pop();
-      }
-    }
-    updateSeeds(frame);
-    if(frame->isKeyframe())
-      initializeSeeds(frame);
-  }
-}
 
-void DepthFilter::updateSeeds(FramePtr frame)
+
+void DepthFilter::updateSeeds(FramePtr frame, bool use_vogiatzis_update)
 {
   // update only a limited number of seeds, because we don't have time to do it
   // for all the seeds in every frame!
@@ -263,7 +218,7 @@ void DepthFilter::updateSeeds(FramePtr frame)
     // debug log
     // std::cout << "tau: " << tau<< std::endl;
     // std::cout << "z: " << z << std::endl;
-    float threshold = 100.0;
+    float threshold = 200.0;
     // std::cout << "threshold: " << it->z_range/threshold << std::endl;
 
     // debug log
@@ -272,7 +227,10 @@ void DepthFilter::updateSeeds(FramePtr frame)
 
 
     // update the estimate
-    updateSeed(1./z, tau_inverse*tau_inverse, &*it);
+    if (use_vogiatzis_update)
+      updateSeed(1./z, tau_inverse*tau_inverse, &*it);
+    else
+      updateSeedGaussian(1./z, tau_inverse*tau_inverse, &*it);
     ++n_updates;
 
     // debug log
@@ -364,6 +322,19 @@ void DepthFilter::updateSeed(const float x, const float tau2, Seed* seed)
   seed->a = (e-f)/(f-e/f);
   seed->b = seed->a*(1.0f-f)/f;
 }
+
+
+void DepthFilter::updateSeedGaussian(const float x, const float tau2, Seed* seed)
+{
+  float norm_scale = sqrt(seed->sigma2 + tau2);
+  if(std::isnan(norm_scale))
+    return;
+  
+  const float denom = (seed->sigma2 + tau2);
+  seed->mu = (seed->sigma2 * x + tau2 * seed->mu) / denom;
+  seed->sigma2 = seed->sigma2 * tau2 / denom;
+}
+
 
 double DepthFilter::computeTau(
       const SE3& T_ref_cur,
