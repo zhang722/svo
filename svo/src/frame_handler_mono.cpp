@@ -240,6 +240,11 @@ FrameHandlerBase::UpdateResult FrameHandlerMono::processFrame()
 
   // init new depth-filters
   depth_filter_->addKeyframe(new_frame_, depth_mean, 0.5*depth_min);
+  if (options_.update_seeds_with_old_keyframes) {
+    for (auto& old_kf : overlap_kfs_) {
+      depth_filter_->updateSeeds(old_kf.first);
+    }
+  }
 
   // if limited number of keyframes, remove the one furthest apart
   if(Config::maxNKfs() > 2 && map_.size() >= Config::maxNKfs())

@@ -50,6 +50,10 @@ struct Options
   /// keyframe, then we don't take a new keyframe.
   double kfselect_min_angle = 20;
   double kfselect_min_dist_metric = 0.01;
+
+  /// If update seeds with overlap keyframes when a 
+  /// keyframe selected into depth filter.
+  bool update_seeds_with_old_keyframes = true;
 };
 
 /// Monocular Visual Odometry Pipeline as described in the SVO paper.

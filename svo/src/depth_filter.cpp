@@ -214,6 +214,14 @@ void DepthFilter::updateSeeds(FramePtr frame)
   int count = 0;
   while( it!=seeds_.end())
   {
+    // check if update seed with frame in which the seed is created
+    if (it->ftr->frame && frame.get()) {
+      if (it->ftr->frame->id_ == frame->id_) {
+        ++it;
+        continue;
+      }
+    }
+
     // set this value true when seeds updating should be interrupted
     if(seeds_updating_halt_)
       return;
@@ -255,7 +263,7 @@ void DepthFilter::updateSeeds(FramePtr frame)
     // debug log
     // std::cout << "tau: " << tau<< std::endl;
     // std::cout << "z: " << z << std::endl;
-    float threshold = 20.0;
+    float threshold = 100.0;
     // std::cout << "threshold: " << it->z_range/threshold << std::endl;
 
     // debug log

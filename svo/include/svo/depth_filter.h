@@ -134,6 +134,9 @@ public:
       const double z,
       const double px_error_angle);
 
+  /// Update all seeds with a new measurement frame.
+  virtual void updateSeeds(FramePtr frame);
+
 protected:
   feature_detection::DetectorPtr feature_detector_;
   callback_t seed_converged_cb_;
@@ -154,8 +157,7 @@ protected:
   /// Initialize new seeds from a frame.
   void initializeSeeds(FramePtr frame);
 
-  /// Update all seeds with a new measurement frame.
-  virtual void updateSeeds(FramePtr frame);
+
 
   /// When a new keyframe arrives, the frame queue should be cleared.
   void clearFrameQueue();
