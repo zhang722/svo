@@ -162,33 +162,33 @@ FrameHandlerBase::UpdateResult FrameHandlerMono::processFrame()
   // }
 
   // pose optimization
-  // SVO_START_TIMER("pose_optimizer");
-  // size_t sfba_n_edges_final;
-  // double sfba_thresh, sfba_error_init, sfba_error_final;
-  // pose_optimizer::optimizeGaussNewton(
-  //     Config::poseOptimThresh(), Config::poseOptimNumIter(), false,
-  //     new_frame_, sfba_thresh, sfba_error_init, sfba_error_final, sfba_n_edges_final);
-  // SVO_STOP_TIMER("pose_optimizer");
-  // SVO_LOG4(sfba_thresh, sfba_error_init, sfba_error_final, sfba_n_edges_final);
-  // SVO_DEBUG_STREAM("PoseOptimizer:\t ErrInit = "<<sfba_error_init<<"px\t thresh = "<<sfba_thresh);
-  // SVO_DEBUG_STREAM("PoseOptimizer:\t ErrFin. = "<<sfba_error_final<<"px\t nObsFin. = "<<sfba_n_edges_final);
-  // std::cout << "sfba:" << sfba_n_edges_final << std::endl;
-  // if(sfba_n_edges_final < 20)
-  //   return RESULT_FAILURE;
+  SVO_START_TIMER("pose_optimizer");
+  size_t sfba_n_edges_final;
+  double sfba_thresh, sfba_error_init, sfba_error_final;
+  pose_optimizer::optimizeGaussNewton(
+      Config::poseOptimThresh(), Config::poseOptimNumIter(), false,
+      new_frame_, sfba_thresh, sfba_error_init, sfba_error_final, sfba_n_edges_final);
+  SVO_STOP_TIMER("pose_optimizer");
+  SVO_LOG4(sfba_thresh, sfba_error_init, sfba_error_final, sfba_n_edges_final);
+  SVO_DEBUG_STREAM("PoseOptimizer:\t ErrInit = "<<sfba_error_init<<"px\t thresh = "<<sfba_thresh);
+  SVO_DEBUG_STREAM("PoseOptimizer:\t ErrFin. = "<<sfba_error_final<<"px\t nObsFin. = "<<sfba_n_edges_final);
+  std::cout << "sfba:" << sfba_n_edges_final << std::endl;
+  if(sfba_n_edges_final < 20)
+    return RESULT_FAILURE;
 
-  // // structure optimization
-  // SVO_START_TIMER("point_optimizer");
-  // optimizeStructure(new_frame_, Config::structureOptimMaxPts(), Config::structureOptimNumIter());
-  // SVO_STOP_TIMER("point_optimizer");
+  // structure optimization
+  SVO_START_TIMER("point_optimizer");
+  optimizeStructure(new_frame_, Config::structureOptimMaxPts(), Config::structureOptimNumIter());
+  SVO_STOP_TIMER("point_optimizer");
 
-  // // select keyframe
-  // core_kfs_.insert(new_frame_);
-  // setTrackingQuality(sfba_n_edges_final);
-  // if(tracking_quality_ == TRACKING_INSUFFICIENT)
-  // {
-  //   new_frame_->T_f_w_ = last_frame_->T_f_w_; // reset to avoid crazy pose jumps
-  //   return RESULT_FAILURE;
-  // }
+  // select keyframe
+  core_kfs_.insert(new_frame_);
+  setTrackingQuality(sfba_n_edges_final);
+  if(tracking_quality_ == TRACKING_INSUFFICIENT)
+  {
+    new_frame_->T_f_w_ = last_frame_->T_f_w_; // reset to avoid crazy pose jumps
+    return RESULT_FAILURE;
+  }
   double depth_mean, depth_min;
   frame_utils::getSceneDepth(*new_frame_, depth_mean, depth_min);
   std::cout << "kf size: " << map_.keyframes_.size() << std::endl;
