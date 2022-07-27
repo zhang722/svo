@@ -168,13 +168,13 @@ FrameHandlerBase::UpdateResult FrameHandlerMono::processFrame()
   SVO_DEBUG_STREAM("Reprojection:\t nPoints = "<<repr_n_mps<<"\t \t nMatches = "<<repr_n_new_references);
   std::cout << "Reprojection:\t nPoints = "<<repr_n_mps<<"\t \t nMatches = "<<repr_n_new_references<< std::endl;
   
-  // if(repr_n_new_references < Config::qualityMinFts())
-  // {
-  //   SVO_WARN_STREAM_THROTTLE(1.0, "Not enough matched features.");
-  //   new_frame_->T_f_w_ = last_frame_->T_f_w_; // reset to avoid crazy pose jumps
-  //   tracking_quality_ = TRACKING_INSUFFICIENT;
-  //   return RESULT_FAILURE;
-  // }
+  if(repr_n_new_references < Config::qualityMinFts())
+  {
+    SVO_WARN_STREAM_THROTTLE(1.0, "Not enough matched features.");
+    // new_frame_->T_f_w_ = last_frame_->T_f_w_; // reset to avoid crazy pose jumps
+    // tracking_quality_ = TRACKING_INSUFFICIENT;
+    // return RESULT_FAILURE;
+  }
 
   // pose optimization
   SVO_START_TIMER("pose_optimizer");
@@ -198,12 +198,12 @@ FrameHandlerBase::UpdateResult FrameHandlerMono::processFrame()
 
   // select keyframe
   core_kfs_.insert(new_frame_);
-  // setTrackingQuality(sfba_n_edges_final);
-  // if(tracking_quality_ == TRACKING_INSUFFICIENT)
-  // {
-  //   new_frame_->T_f_w_ = last_frame_->T_f_w_; // reset to avoid crazy pose jumps
-  //   return RESULT_FAILURE;
-  // }
+  setTrackingQuality(sfba_n_edges_final);
+  if(tracking_quality_ == TRACKING_INSUFFICIENT)
+  {
+    // new_frame_->T_f_w_ = last_frame_->T_f_w_; // reset to avoid crazy pose jumps
+    // return RESULT_FAILURE;
+  }
   double depth_mean, depth_min;
   frame_utils::getSceneDepth(*new_frame_, depth_mean, depth_min);
   std::cout << "kf size: " << map_.keyframes_.size() << std::endl;
@@ -345,13 +345,6 @@ void FrameHandlerMono::setFirstFrame(const FramePtr& first_frame)
 
 bool FrameHandlerMono::needNewKf(double scene_depth_mean)
 {
-  if (last_kf_time_sec_ > 0 
-    && options_.kfselect_backend_max_time_sec > 0
-    && new_frame_->getTimestampSec() - last_kf_time_sec_ > 
-       options_.kfselect_backend_max_time_sec) {
-    return true;
-  }
-
   size_t n_tracked_fts = new_frame_->numTrackedLandmarks();
   // KF Select: NO NEW KEYFRAME Above upper bound
   if (n_tracked_fts > options_.kfselect_numkfs_upper_thresh) {
@@ -431,21 +424,27 @@ void FrameHandlerMono::setCoreKfs(size_t n_closest)
 
 
 void FrameHandlerMono::setThreshold(std::list<int>& converged_seeds,
-  float& seed_convergence_sigma2_thresh)
+  float& threshold)
 {
+  // TODO: The following implementation is naive. Later we can improve the way
+  // to update threshold.
+
+  // How many seeds converged in last 3 frames totally?
   int count = 0;
-  for (auto& c : converged_seeds) {
+  for (auto& c : converged_seeds)
     count += c;
-  }
-  if (!count) {
-    seed_convergence_sigma2_thresh -= 20;
-  } else if (count > 5) {
-    seed_convergence_sigma2_thresh += 20;
-  }
-  if (seed_convergence_sigma2_thresh > 200)
-    seed_convergence_sigma2_thresh = 200;
-  if (seed_convergence_sigma2_thresh < 20)
-    seed_convergence_sigma2_thresh = 20;
+
+  // Change threshold refer to the count of converged seed of last 3 frames.
+  if (!count) 
+    threshold -= 20;
+  else if (count > 5) 
+    threshold += 20;
+  
+  // Ensure that threshold is in good limit.
+  if (threshold > 200)
+    threshold = 200;
+  if (threshold < 20)
+    threshold = 20;
 }
 
 } // namespace svo

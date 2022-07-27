@@ -27,9 +27,6 @@ namespace svo {
 
 struct Options
 {
-  /// Maximun duration allowed between keyframes.
-  double kfselect_backend_max_time_sec = 3.0;
-  
   /// If we are tracking more than this amount of
   /// features, then we don't take a new keyframe.
   size_t kfselect_numkfs_upper_thresh = 110;
@@ -137,8 +134,10 @@ protected:
   void setCoreKfs(size_t n_closest);
 
   /// added
+  /// Set Threshold for depth filter. The smaller threshold is, the easier
+  /// a seed converges.
   void setThreshold(std::list<int>& converged_seeds,
-    float& seed_convergence_sigma2_thresh);
+    float& threshold);
 
   Options options_;
 };

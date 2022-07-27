@@ -163,6 +163,9 @@ void FrameHandlerBase::setTrackingQuality(const size_t num_observations)
     tracking_quality_ = TRACKING_INSUFFICIENT;
   }
   const int feature_drop = static_cast<int>(std::min(num_obs_last_, Config::maxFts())) - num_observations;
+
+  if (last_frame_ == NULL) return;
+
   if(!last_frame_->isKeyframe() && feature_drop > Config::qualityMaxFtsDrop())
   {
     SVO_WARN_STREAM("Lost "<< feature_drop <<" features!");
