@@ -121,7 +121,6 @@ protected:
   /// added
   FramePtr last_frame_;
   FramePtr new_frame_;                          //!< Current frame.
-  double last_kf_time_sec_ = -1.0;
 };
 
 } // namespace nslam

@@ -97,7 +97,9 @@ public:
       const SE3& T_kf_f,
       const cv::Mat& img,
       const double timestamp);
-  
+
+  void saveTUMPoses(const std::string& output_path); 
+
   std::list<int> converged_seed_last_frames_;
 
 protected:
@@ -129,7 +131,7 @@ protected:
   virtual void resetAll();
 
   /// Keyframe selection criterion.
-  virtual bool needNewKf(double scene_depth_mean);
+  virtual bool needNewKf();
 
   void setCoreKfs(size_t n_closest);
 
@@ -139,6 +141,10 @@ protected:
   void setThreshold(std::list<int>& converged_seeds,
     float& threshold);
 
+
+
+  std::vector<Sophus::SE3> cam_poses_;
+  std::vector<float> cam_timestamps_;
   Options options_;
 };
 

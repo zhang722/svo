@@ -102,7 +102,7 @@ void VoNode::imgCb(const sensor_msgs::ImageConstPtr& msg)
   } catch (cv_bridge::Exception& e) {
     ROS_ERROR("cv_bridge exception: %s", e.what());
   }
-  processUserActions();
+  
   vo_->addImage(img, msg->header.stamp.toSec());
   visualizer_.publishMinimal(img, vo_->lastFrame(), *vo_, msg->header.stamp.toSec());
 
@@ -142,6 +142,10 @@ void VoNode::processUserActions()
       vo_->start();
       printf("SVO user input: START\n");
       break;
+    case 'v':
+      vo_->saveTUMPoses("/home/sen/zhangs_files");
+      printf("SVO save poses!\n");
+      break;
     default: ;
   }
 }
@@ -172,6 +176,7 @@ int main(int argc, char **argv)
   while(ros::ok() && !vo_node.quit_)
   {
     ros::spinOnce();
+    vo_node.processUserActions();
     // TODO check when last image was processed. when too long ago. publish warning that no msgs are received!
   }
 

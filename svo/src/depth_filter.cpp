@@ -160,10 +160,12 @@ int DepthFilter::updateSeeds(FramePtr frame, bool use_vogiatzis_update, float th
   double px_noise = 1.0;
   double px_error_angle = atan(px_noise/(2.0*focal_length))*2.0; // law of chord (sehnensatz)
 
+  // to count how many seeds converged after updating
   int count = 0;
+
   while( it!=seeds_.end())
   {
-    // check if update seed with frame in which the seed is created
+    // don't update seed with frame in which the seed is created
     if (it->ftr->frame && frame.get()) {
       if (it->ftr->frame->id_ == frame->id_) {
         ++it;
@@ -218,7 +220,6 @@ int DepthFilter::updateSeeds(FramePtr frame, bool use_vogiatzis_update, float th
     // std::cout << "before:\n" << "sqrt sigma: " << sqrt(it->sigma2) << std::endl;
     // std::cout << "z inv: " << 1./z << std::endl;
 
-
     // update the estimate
     if (use_vogiatzis_update)
       updateSeed(1./z, tau_inverse*tau_inverse, &*it);
@@ -230,7 +231,7 @@ int DepthFilter::updateSeeds(FramePtr frame, bool use_vogiatzis_update, float th
     // std::cout << "after:\n" << "sqrt sigma: " << sqrt(it->sigma2) << std::endl;
     // std::cout << "z inv: " << 1./z << std::endl;
 
-    if(frame->isKeyframe())
+    if(frame->isKeyframe() )
     {
       // The feature detector should not initialize new seeds close to this location
       feature_detector_->setGridOccpuancy(matcher_.px_cur_);

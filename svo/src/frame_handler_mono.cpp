@@ -24,6 +24,8 @@
 #include <svo/sparse_img_align.h>
 #include <vikit/performance_monitor.h>
 #include <svo/depth_filter.h>
+
+#include <ctime>
 #ifdef USE_BUNDLE_ADJUSTMENT
 #include <svo/bundle_adjustment.h>
 #endif
@@ -71,8 +73,14 @@ void FrameHandlerMono::addImage(const cv::Mat& img, const double timestamp)
 
   // process frame
   UpdateResult res = RESULT_FAILURE;
-  if(stage_ == STAGE_DEFAULT_FRAME)
+  if(stage_ == STAGE_DEFAULT_FRAME) {
+    clock_t start, end;
+    start = clock();
     res = processFrame();
+    end = clock();
+    // debug log
+    std::cout << "time: " << double(end - start) / CLOCKS_PER_SEC * 1000<< std::endl;
+  }
   else if(stage_ == STAGE_SECOND_FRAME)
     res = processSecondFrame();
   else if(stage_ == STAGE_FIRST_FRAME)
@@ -220,7 +228,10 @@ FrameHandlerBase::UpdateResult FrameHandlerMono::processFrame()
     count1 ++;
   }
   std::cout << "ft size: " << count << std::endl;
-  if(!needNewKf(depth_mean) || tracking_quality_ == TRACKING_BAD)
+
+  cam_poses_.push_back(new_frame_->T_f_w_);
+  cam_timestamps_.push_back(new_frame_->timestamp_);
+  if(!needNewKf() || tracking_quality_ == TRACKING_BAD)
   {
 
     return RESULT_NO_KEYFRAME;
@@ -253,14 +264,21 @@ FrameHandlerBase::UpdateResult FrameHandlerMono::processFrame()
   }
 #endif
 
+  clock_t start, end1, end2;
+  start = clock();
   // init new depth-filters
   depth_filter_->addKeyframe(new_frame_, depth_mean, 0.5*depth_min);
+  end1 = clock();
   if (options_.update_seeds_with_old_keyframes) {
     for (auto& old_kf : overlap_kfs_) {
       depth_filter_->updateSeeds(old_kf.first, options_.use_vogiatzis_update,
         options_.seed_convergence_sigma2_thresh);
     }
   }
+  end2 = clock();
+  // debug log
+  std::cout << "time1: " << double(end1 - start) / CLOCKS_PER_SEC * 1000<< std::endl;
+  std::cout << "time2: " << double(end2 - end1) / CLOCKS_PER_SEC * 1000<< std::endl;
 
   // if limited number of keyframes, remove the one furthest apart
   if(Config::maxNKfs() > 2 && map_.size() >= Config::maxNKfs())
@@ -272,6 +290,7 @@ FrameHandlerBase::UpdateResult FrameHandlerMono::processFrame()
 
   // add keyframe to map
   map_.addKeyframe(new_frame_);
+
 
   return RESULT_IS_KEYFRAME;
 }
@@ -343,7 +362,7 @@ void FrameHandlerMono::setFirstFrame(const FramePtr& first_frame)
   stage_ = STAGE_DEFAULT_FRAME;
 }
 
-bool FrameHandlerMono::needNewKf(double scene_depth_mean)
+bool FrameHandlerMono::needNewKf()
 {
   size_t n_tracked_fts = new_frame_->numTrackedLandmarks();
   // KF Select: NO NEW KEYFRAME Above upper bound
@@ -435,16 +454,37 @@ void FrameHandlerMono::setThreshold(std::list<int>& converged_seeds,
     count += c;
 
   // Change threshold refer to the count of converged seed of last 3 frames.
+  int step = 20;
   if (!count) 
-    threshold -= 20;
-  else if (count > 5) 
-    threshold += 20;
+    threshold -= step;
+  else if (count > 5) {
+    threshold += step;
+  }
   
   // Ensure that threshold is in good limit.
-  if (threshold > 200)
-    threshold = 200;
+  // if (threshold > 400)
+  //   threshold = 400;
   if (threshold < 20)
     threshold = 20;
+}
+
+void FrameHandlerMono::saveTUMPoses(const std::string& output_path)
+{
+    std::ofstream f;
+    f.open(output_path + "/cam_poses.txt", std::fstream::out);
+    const int cam_num = cam_poses_.size();
+    for(int cam_indx = 0; cam_indx < cam_num; cam_indx++) 
+    {
+        Sophus::SE3 cam_pose = cam_poses_[cam_indx]; // T_imu_world
+        float cam_timestamp = cam_timestamps_[cam_indx];
+        Eigen::Quaterniond pos_qua = cam_pose.inverse().unit_quaternion();
+        Eigen::Vector3d pos_tran = cam_pose.inverse().translation();
+
+        f << cam_timestamp << " " << pos_tran(0) << " " << pos_tran(1) << " " << pos_tran(2) << " ";
+        f << pos_qua.x() << " " << pos_qua.y() << " " << pos_qua.z() << " " << pos_qua.w();
+        f << std::endl;
+    }
+    f.close();
 }
 
 } // namespace svo
